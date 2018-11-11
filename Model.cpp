@@ -15,8 +15,7 @@ Model::Model(std::string path,int sec)
 	rotate = glm::mat4();
 	scale = glm::vec3(1.0, 1.0, 1.0);
 
-
-	//初始化
+	//init
 	N.setZero(3, V.cols());
 	T.setZero(2, V.cols());
 	T_PolarCoord.setZero(2, V.cols());
@@ -24,16 +23,13 @@ Model::Model(std::string path,int sec)
 	for (auto& item : graph) {
 		item.resize(V.cols(), std::numeric_limits<double>::max());
 	}
-	d.resize(V.cols(), std::numeric_limits<double>::max());
-	p.resize(V.cols(), -1);
 
-	//根据V、F计算法向量N
 	calNormal();
 
-	//根据源点sec计算uv坐标
-	if (sec != -1) calTexCoord(sec);
+	if (sec != -1)
+		calTexCoord_DEM(sec);
+		//calTexCoord_SP(sec);
 
-	//将顶点数据(包括坐标、法向量、纹理坐标)按顺序放入mesh中，传给GPU
 	vector<Vertex> mesh;
 	for (int i = 0; i != F.cols(); ++i) {
 		auto col = F.col(i);
@@ -67,49 +63,17 @@ void Model::calNormal()
 		N.col(i).normalize();
 	}
 }
-void Model::calTexCoord(int sec) {
+void Model::calTexCoord_DEM(int sec) 
+{
+	buildGraph();
 
-	for (int i = 0; i < F.cols(); ++i) {
-		int index_0 = F(0, i);
-		int index_1 = F(1, i);
-		int index_2 = F(2, i);
-		graph[index_0][index_1] = graph[index_1][index_0] = (V.col(index_0) - V.col(index_1)).norm();
-		graph[index_1][index_2] = graph[index_2][index_1]= (V.col(index_1)- V.col(index_2)).norm();
-		graph[index_2][index_0] = graph[index_0][index_2]=(V.col(index_2) - V.col(index_0)).norm();
-	}
-
-	//求解在点sec切平面上的极坐标
-	dijkstra(sec);
-
-
-	Eigen::Vector3d p_pos = V.col(sec);
-	Eigen::Vector3d p_norm = N.col(sec);
-	p_norm.normalize();
-	Eigen::Vector3d p_e1 = ProjectOnPlane(p_pos, p_norm, Eigen::Vector3d(1,0,0));
-	p_e1.normalize();
-
-	//polar coord to rectangular coord
-	for (int i = 0; i < V.cols(); ++i) {
-		if (i == sec) {
-			T.col(i) = Eigen::Vector2d(0.5,0.5);
-			continue;
-		}
-		Eigen::Vector2d uv = T_PolarCoord.col(i);
-		double x = uv.x()*0.5;
-		double y = uv.y()*0.5;
-
-		T.col(i) = Eigen::Vector2d((0.5 + x), (0.5 + y) );
-		//std::cout << "(" << 0.5 + x << "," << 0.5 + y << ")" << std::endl;
-	}
-
+	dijkstra_DEM(sec);
+	
+	calTexCoord(sec);
 }
 
-Eigen::Vector3d Model::ProjectOnPlane(Eigen::Vector3d p, Eigen::Vector3d n, Eigen::Vector3d q){
-	if (((q - p).norm()) == 0)return q;
-	else return (q-p) - (q - p).dot(n) * n;
-}
 
-void Model::dijkstra(int sec)
+void Model::dijkstra_DEM(int sec)
 {
 	Eigen::Vector3d p_pos = V.col(sec);
 	Eigen::Vector3d p_norm = N.col(sec);
@@ -119,6 +83,11 @@ void Model::dijkstra(int sec)
 
 	std::vector<int>vis;
 	vis.resize(V.cols(), 0);
+
+	vector<double> d;
+	vector<int> p;
+	d.resize(V.cols(), std::numeric_limits<double>::max());
+	p.resize(V.cols(), -1);
 
 	for (int i = 0; i<V.cols(); i++)
 	{
@@ -199,11 +168,6 @@ void Model::dijkstra(int sec)
 
 			M << cos(theta), -sin(theta), sin(theta), cos(theta);
 
-			//Eigen::AngleAxisd rotation_vector2(acos(q_e1_transformed.dot(p_e1)), p_norm);
-			//Eigen::Isometry3d T2 = Eigen::Isometry3d::Identity();
-			//T2.rotate(rotation_vector2);
-			//T2.pretranslate(Eigen::Vector3d(0, 0, 0));
-
 			if (Urq.cwiseAbs().maxCoeff() < 1e-6) T_PolarCoord.col(r_index) = T_PolarCoord.col(q_index);
 			else T_PolarCoord.col(r_index) = T_PolarCoord.col(q_index) + M*Urq;
 			//std::cout << T_PolarCoord.col(r_index) << std::endl;
@@ -218,6 +182,63 @@ void Model::dijkstra(int sec)
 		}
 	}
 }
+
+
+
+
+void Model::calTexCoord_SP(int sec) 
+{
+	buildGraph();
+
+	dijkstra_SP(sec);
+
+	calTexCoord(sec);
+}
+
+void Model::dijkstra_SP(int sec)
+{
+
+}
+
+void Model::buildGraph()
+{
+	for (int i = 0; i < F.cols(); ++i) {
+		int index_0 = F(0, i);
+		int index_1 = F(1, i);
+		int index_2 = F(2, i);
+		graph[index_0][index_1] = graph[index_1][index_0] = (V.col(index_0) - V.col(index_1)).norm();
+		graph[index_1][index_2] = graph[index_2][index_1] = (V.col(index_1) - V.col(index_2)).norm();
+		graph[index_2][index_0] = graph[index_0][index_2] = (V.col(index_2) - V.col(index_0)).norm();
+	}
+}
+
+void Model::calTexCoord(int sec)
+{
+	for (int i = 0; i < V.cols(); ++i) {
+		if (i == sec) {
+			T.col(i) = Eigen::Vector2d(0.5, 0.5);
+			continue;
+		}
+		Eigen::Vector2d uv = T_PolarCoord.col(i);
+		double x = uv.x()*0.5;
+		double y = uv.y()*0.5;
+
+		T.col(i) = Eigen::Vector2d((0.5 + x), (0.5 + y));
+		//std::cout << "(" << 0.5 + x << "," << 0.5 + y << ")" << std::endl;
+	}
+}
+
+Eigen::Vector3d Model::ProjectOnPlane(Eigen::Vector3d p, Eigen::Vector3d n, Eigen::Vector3d q) {
+	if (((q - p).norm()) == 0)return q;
+	else return (q - p) - (q - p).dot(n) * n;
+}
+
+void Model::setRotate(const float angle, const glm::vec3& axis) {
+	glm::mat4 temp;
+	temp = glm::rotate(temp, angle, axis);
+	rotate = temp * rotate;
+}
+
 void Model::render(const Shader& shader)
 {
 	glm::mat4 model;
@@ -243,12 +264,3 @@ void Model::renderOffScreen(const Shader& colorShader) {
 	for (auto mesh : meshes)
 		mesh.renderOffScreen(colorShader);
 }
-
-void Model::setRotate(const float angle, const glm::vec3& axis) {
-	glm::mat4 temp;
-	temp = glm::rotate(temp, angle, axis);
-	rotate = temp * rotate;
-}
-
-
-

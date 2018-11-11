@@ -25,9 +25,8 @@ public:
 	void renderOffScreen(const Shader& colorShader);
 
 	void calNormal();
-	void calTexCoord(int sec);
-	void dijkstra(int sec);
-	Eigen::Vector3d ProjectOnPlane(Eigen::Vector3d vp, Eigen::Vector3d vn, Eigen::Vector3d vq);
+	void calTexCoord_DEM(int sec);
+	void calTexCoord_SP(int sec);
 
 	void setPosition(const glm::vec3& pos) { this->position = pos; }
 	void setScale(const glm::vec3& scale) { this->scale = scale; }
@@ -37,6 +36,12 @@ public:
 	glm::vec3 getScale()const { return scale; }
 	glm::mat4 getRotate()const { return rotate; }
 
+private:
+	void buildGraph();
+	void calTexCoord(int sec);
+	void dijkstra_DEM(int sec);
+	void dijkstra_SP(int sec);
+	Eigen::Vector3d ProjectOnPlane(Eigen::Vector3d vp, Eigen::Vector3d vn, Eigen::Vector3d vq);
 public:
 	Eigen::Matrix3Xd V;
 	Eigen::Matrix3Xi F;
@@ -44,13 +49,10 @@ public:
 	Eigen::Matrix2Xd T;
 	Eigen::Matrix2Xd T_PolarCoord;
 private:
-	vector<Mesh> meshes;
-
 	glm::vec3 position;
 	glm::vec3 scale;
 	glm::mat4 rotate;
 
+	vector<Mesh> meshes;
 	vector<vector<double>> graph;
-	vector<double> d;
-	vector<int> p;
 };
