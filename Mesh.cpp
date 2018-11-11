@@ -26,9 +26,17 @@ Mesh::Mesh(const vector<Vertex>& vertices)
 	glBindVertexArray(0);
 }
 
-void Mesh::draw(const Shader& shader)
+void Mesh::render(const Shader& shader)
 {
 	shader.use();
+	glBindVertexArray(VAO);
+	glDrawArrays(GL_TRIANGLES, 0, vertices.size());
+	glBindVertexArray(0);
+}
+
+void Mesh::renderOffScreen(const Shader& colorShader) {
+	colorShader.use();
+	colorShader.setFloat("color", 0);
 	glBindVertexArray(VAO);
 	glDrawArrays(GL_TRIANGLES, 0, vertices.size());
 	glBindVertexArray(0);

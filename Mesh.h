@@ -21,8 +21,8 @@ struct Vertex {
 class Mesh {
 public:
 	Mesh(const vector<Vertex>& vertices);
-	void draw(const Shader& shader);
-
+	void render(const Shader& shader);
+	void renderOffScreen(const Shader& colorShader);
 public:
 	vector<Vertex> vertices;
 private:

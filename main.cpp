@@ -3,8 +3,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
-#define STB_IMAGE_IMPLEMENTATION
-#include <stb/stb_image.h>
+
 
 #include <iostream>
 #include <string>
@@ -14,14 +13,14 @@
 
 #include "Camera.h"
 #include "Shader.h"
-#include "Model.h"
+#include "ModelRenderer.h"
 
 void cursorPos_callback(GLFWwindow* window, double xpos, double ypos);
 void mouseButton_callback(GLFWwindow *window, int button, int action, int modifiers);
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 void processInput(GLFWwindow *window);
-unsigned int genTexture(const string& path);
+
 
 Camera camera(glm::vec3(0.0f, 0.0f, 10.0f));
 
@@ -30,21 +29,23 @@ double Width = 1200, Height = 600;
 
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
-float Right_lastX = Width / 2.0f;
-float Right_lastY = Height / 2.0f;
+float Right_lastX = Width / 2.0f,Left_lastX= Width / 2.0f;
+float Right_lastY = Height / 2.0f, Left_lastY = Height / 2.0f;
 bool firstMouse_Right = true;
+bool firstMouse_Left = true;
 
-bool polygonMode = false;
+ModelRenderer renderer;
+Shader shader("shader/shader.vs", "shader/shader.fs");
+Shader colorShader("shader/colorShader.vs", "shader/colorShader.fs");
 
-Shader shader("shader\\shader.vs", "shader\\shader.fs");
-
-Eigen::Vector3d ProjectOnPlane(Eigen::Vector3d p, Eigen::Vector3d n, Eigen::Vector3d q) {
-	if (((q - p).norm()) == 0)return q;
-	else return (q - p) - (q - p).dot(n) * n;
-}
-
-int main()
+int main(int argc,char* argv[])
 {
+	string modelPath("objects/sphere-4k.obj");
+	int index = 1;
+	if (argc > 2) {
+		modelPath = argv[1];
+		index = atoi(argv[2]);
+	}
 	glfwInit();
 
 	glfwSetTime(0);
@@ -71,10 +72,11 @@ int main()
 	glfwSetScrollCallback(window, scroll_callback);
 
 	shader.init();
-	Model model("objects//sphere-4k.obj",1);
-	unsigned int texture = genTexture("texture//Chess_Board.png");
+	colorShader.init();
+	Model model(modelPath,index);
+	renderer.init(&model);
 
-	
+
 
 	while (!glfwWindowShouldClose(window))
 	{
@@ -85,21 +87,7 @@ int main()
 		processInput(window);
 		glfwPollEvents();
 		
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-		glEnable(GL_DEPTH_TEST);
-		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-		glActiveTexture(GL_TEXTURE0); // 在绑定纹理之前先激活纹理单元
-		glBindTexture(GL_TEXTURE_2D, texture);
-		glm::mat4 view = camera.GetViewMatrix();
-		glm::mat4 projection = glm::perspective<float>(glm::radians(camera.Zoom), Width / Height, 0.1f, 100.0f);
-		shader.use();
-		shader.setMat4("view", view);
-		shader.setMat4("projection", projection);
-		shader.setVec3("direction", camera.Front);
-		model.draw(shader);
-
+		renderer.render(shader);
 		glfwSwapBuffers(window);
 	}
 
@@ -107,32 +95,7 @@ int main()
 	return 0;
 }
 
-unsigned int genTexture(const string& path) {
-	unsigned int texture;
-	glGenTextures(1, &texture);
-	glBindTexture(GL_TEXTURE_2D, texture); 
-	float borderColor[] = { 1.0f, 1.0f, 0.0f, 1.0f };
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-	glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
 
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-	int width, height, nrChannels;
-	unsigned char *data = stbi_load(path.c_str(), &width, &height, &nrChannels, 0);
-	if (data)
-	{
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
-		glGenerateMipmap(GL_TEXTURE_2D);
-	}
-	else
-	{
-		std::cout << "Failed to load texture" << std::endl;
-	}
-	stbi_image_free(data);
-	return texture;
-}
 void processInput(GLFWwindow *window)
 {
 	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
@@ -153,9 +116,38 @@ void processInput(GLFWwindow *window)
 
 }
 
-void cursorPos_callback(GLFWwindow* window, double xpos, double ypos) {
+void mouseButton_callback(GLFWwindow *window, int button, int action, int modifiers) {
 
-	if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT)) {
+	double x, y;
+	glfwGetCursorPos(window, &x, &y);
+	if (action == GLFW_PRESS) {
+		renderer.renderOffScreen(colorShader, x, y);
+	}
+	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE)
+		firstMouse_Left = true;
+	if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE)
+		firstMouse_Right = true;
+}
+
+void cursorPos_callback(GLFWwindow* window, double xpos, double ypos) {
+	if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT)) {
+		if (firstMouse_Left) {
+			Left_lastX = xpos;
+			Left_lastY = ypos;
+			firstMouse_Left = false;
+		}
+		float xoffset = xpos - Left_lastX;
+		float yoffset = Left_lastY - ypos;
+		Left_lastX = xpos;
+		Left_lastY = ypos;
+		if (renderer.isSelect()) {
+			xoffset *= 0.01;
+			yoffset *= 0.01;
+			Model* model = renderer.getModel();
+			model->setPosition(model->getPosition() + camera.Right*xoffset + camera.Up*yoffset);
+		}
+	}
+	else if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT)) {
 		if (firstMouse_Right) {
 			Right_lastX = xpos;
 			Right_lastY = ypos;
@@ -166,20 +158,24 @@ void cursorPos_callback(GLFWwindow* window, double xpos, double ypos) {
 		float yoffset = Right_lastY - ypos;
 		Right_lastX = xpos;
 		Right_lastY = ypos;
-		camera.ProcessMouseMovement(xoffset, yoffset);
+		if (renderer.isSelect()) {
+			xoffset *= 0.01;
+			yoffset *= 0.01;
+			Model* model = renderer.getModel();
+
+			model->setRotate(xoffset, camera.Up);
+			model->setRotate(yoffset, -camera.Right);
+		}
 	}
 
 }
 
-void mouseButton_callback(GLFWwindow *window, int button, int action, int modifiers) {
-
-	if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE)
-		firstMouse_Right = true;
-}
-
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 {
-	camera.ProcessMouseScroll(yoffset);
+	if (renderer.isSelect()) {
+		Model* model = renderer.getModel();
+		model->setScale(model->getScale() + glm::vec3(yoffset * 0.05));
+	}
 }
 
 

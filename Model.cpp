@@ -11,6 +11,11 @@ Model::Model(std::string path,int sec)
 	if (!mesh_io_helper::read_obj(path, V, F)) {
 		std::cerr << "read src or target obj failure!" << std::endl;
 	}
+	position = glm::vec3(0.0, 0.0, 0.0);
+	rotate = glm::mat4();
+	scale = glm::vec3(1.0, 1.0, 1.0);
+
+
 	//初始化
 	N.setZero(3, V.cols());
 	T.setZero(2, V.cols());
@@ -213,13 +218,37 @@ void Model::dijkstra(int sec)
 		}
 	}
 }
-void Model::draw(const Shader& shader)
+void Model::render(const Shader& shader)
 {
+	glm::mat4 model;
+	model = glm::translate(model, position);
+	model *= rotate;
+	model = glm::scale(model, scale);
+
+	shader.use();
+	shader.setMat4("model", model);
 	for (auto mesh : meshes)
-		mesh.draw(shader);
+		mesh.render(shader);
 }
 
+void Model::renderOffScreen(const Shader& colorShader) {
+	glm::mat4 model;
+	model = glm::translate(model, position);
+	model *= rotate;
+	model = glm::scale(model, scale);
 
+	colorShader.use();
+	colorShader.setMat4("model", model);
+
+	for (auto mesh : meshes)
+		mesh.renderOffScreen(colorShader);
+}
+
+void Model::setRotate(const float angle, const glm::vec3& axis) {
+	glm::mat4 temp;
+	temp = glm::rotate(temp, angle, axis);
+	rotate = temp * rotate;
+}
 
 
 
