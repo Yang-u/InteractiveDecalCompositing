@@ -26,7 +26,7 @@ void processInput(GLFWwindow *window);
 
 
 
-double Width = 600, Height = 600;
+double Width = 1200, Height = 600;
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
 float Right_lastX = Width / 2.0f,Left_lastX= Width / 2.0f;
@@ -83,8 +83,8 @@ int main(int argc,char* argv[])
 	colorShader.initialize();
 	Model model(modelPath,index,length);
 	modelRenderer.initialize(&model);
-	fractalRenderer.initialize(230, 230);
-	//fractalRenderer.renderFractal(0, 0, 0,0,0);
+	fractalRenderer.initialize(600, 600);
+	fractalRenderer.renderFractal(0, 0, 0,0,0);
 	screen.initialize(window, false);
 
 
@@ -97,7 +97,7 @@ int main(int argc,char* argv[])
 		processInput(window);
 		glfwPollEvents();
 		
-		//glViewport(0,0,Width, Height);
+		glViewport(0,0,Width, Height);
 		modelRenderer.render(shader);
 		screen.update();
 		screen.getScreen()->drawContents();

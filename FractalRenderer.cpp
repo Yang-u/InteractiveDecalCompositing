@@ -30,6 +30,11 @@ void FractalRenderer::initialize(int w, int h ) {
 	glBindFramebuffer(GL_FRAMEBUFFER, _fbo);
 	glBindTexture(GL_TEXTURE_2D, _texture);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, _width, _height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+	float borderColor[] = { 1.0f, 1.0f, 1.0f, 1.0f };
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+	glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
+
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, _texture, 0);
@@ -87,27 +92,27 @@ void FractalRenderer::renderFractal(int type, int t, int r, int p, int q)
 	default:
 		break;
 	}
-
+	glViewport(0, 0, _width, _height);
 	glBindVertexArray(_vao);
 	glDrawArrays(GL_POINTS, 0, _vertices.size());
 	glBindVertexArray(0);
 }
 FractalRenderer::~FractalRenderer()
 {
-	//delete _sierpinski_shader;
-	//delete _julia_shader;
-	//delete _mandelbrot_shader;
-	//delete _newton_shader;
-	//glDeleteVertexArrays(1, &_vao);
-	//glDeleteBuffers(1, &_vbo);
+	delete _sierpinski_shader;
+	delete _julia_shader;
+	delete _mandelbrot_shader;
+	delete _newton_shader;
+	glDeleteVertexArrays(1, &_vao);
+	glDeleteBuffers(1, &_vbo);
 
 }
 
-//unsigned int FractalRenderer::getTexture(int* width, int* height, int* nrChannels) {
-//	*width = _width;
-//	*height = _height;
-//	*nrChannels = 3;
-//	return _texture;
-//}
+unsigned int FractalRenderer::getTexture(int* width, int* height, int* nrChannels) {
+	*width = _width;
+	*height = _height;
+	*nrChannels = 3;
+	return _texture;
+}
 
 

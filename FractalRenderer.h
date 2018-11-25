@@ -17,7 +17,7 @@ public:
 
 	void initialize(int w, int h);
 	void renderFractal(int type, int t, int r, int p, int q);
-	//unsigned int getTexture(int* width, int* height, int* nrChannels);
+	unsigned int getTexture(int* width, int* height, int* nrChannels);
 	unsigned int getTexture(){ return _texture; }
 private:
 	std::vector<glm::vec3> _vertices;

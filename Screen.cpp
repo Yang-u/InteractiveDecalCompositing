@@ -26,29 +26,36 @@ void Screen::initialize(GLFWwindow* window, bool flag) {
 		nanogui::Alignment::Middle, 0, 30));
 	_gui->addWidget("", panel);
 
-	unsigned int texture = fractalRenderer.getTexture();
+	int width, height, nrChannels;
+	unsigned int texture = fractalRenderer.getTexture(&width,&height,&nrChannels);
 	_image_view = new nanogui::ImageView(panel, texture);
 	nanogui::Vector2i _texture_size = nanogui::Vector2i(230, 230);
 	_image_view->setFixedSize(_texture_size);
+	_image_view->setScaleCentered(230.0 / width);
 
 	nanogui::Label* label = new nanogui::Label(panel, "shader parameters");
 	label->setFontSize(20);
 
 	_combobox=new nanogui::ComboBox(panel, { "sierpinski", "julia", "mandelbrot" ,"newton"});
 	_combobox->setFixedWidth(150);
-	_combobox->setChangeCallback([&](bool b) {
-		fractalRenderer.renderFractal(_combobox->selectedIndex(), _sliders[0]->value(), _sliders[1]->value(),
-			_sliders[2]->value(), _sliders[3]->value());
+
+	_combobox->setCallback([&](int i) {
+			fractalRenderer.renderFractal(_combobox->selectedIndex(), _sliders[0]->value(), _sliders[1]->value(),
+				_sliders[2]->value(), _sliders[3]->value());
 	});
 	for (int i = 0; i < 4; ++i) {
 		_sliders[i] = new nanogui::Slider(panel);
-		_sliders[i]->setValue(0.5f);
 		_sliders[i]->setFixedWidth(200);
+		_sliders[i]->setRange(std::pair<float,float>(0.0f, 1.f));
+		_sliders[i]->setValue(0.0f);
 		_sliders[i]->setFinalCallback([&](float value) {
 			fractalRenderer.renderFractal(_combobox->selectedIndex(), _sliders[0]->value(), _sliders[1]->value(),
 				_sliders[2]->value(), _sliders[3]->value());
 		});
 	}
+
+	_sliders[3]->setValue(0.5f);
+
 	_screen->performLayout();
 }
 
