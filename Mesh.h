@@ -24,7 +24,7 @@ public:
 	void render(const Shader& shader);
 	void renderOffScreen(const Shader& colorShader);
 public:
-	vector<Vertex> vertices;
+	vector<Vertex> _vertices;
 private:
-	unsigned int VAO, VBO;
+	unsigned int _vao, _vbo;
 };

@@ -10,7 +10,7 @@ class Shader
 {
 public:
 	Shader(const std::string& vertexPath, const std::string& fragmentPath, const std::string& geometryPath = "");
-	void init();
+	void initialize();
 	void use()const;
 	void setBool(const std::string &name, bool value) const;
 	void setInt(const std::string &name, int value) const;
@@ -27,9 +27,9 @@ public:
 private:
 	void checkCompileErrors(GLuint shader, std::string type);
 private:
-	unsigned int ID;
-	std::string vertexPath;
-	std::string fragmentPath;
-	std::string geometryPath;
+	unsigned int _id;
+	std::string _vertex_path;
+	std::string _fragment_path;
+	std::string _geometry_path;
 };
 

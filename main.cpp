@@ -1,5 +1,7 @@
 #include <glad/glad.h>
 #include <glfw/glfw3.h>
+#include <nanogui/nanogui.h>
+#include <nanogui/imagepanel.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -13,6 +15,7 @@
 
 #include "Camera.h"
 #include "Shader.h"
+#include "Screen.h"
 #include "ModelRenderer.h"
 
 void cursorPos_callback(GLFWwindow* window, double xpos, double ypos);
@@ -22,11 +25,8 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 void processInput(GLFWwindow *window);
 
 
-Camera camera(glm::vec3(0.0f, 0.0f, 10.0f));
 
-
-double Width = 1200, Height = 600;
-
+double Width = 600, Height = 600;
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
 float Right_lastX = Width / 2.0f,Left_lastX= Width / 2.0f;
@@ -34,17 +34,25 @@ float Right_lastY = Height / 2.0f, Left_lastY = Height / 2.0f;
 bool firstMouse_Right = true;
 bool firstMouse_Left = true;
 
-ModelRenderer renderer;
+Camera camera(glm::vec3(0.0f, 0.0f, 10.0f));
+Screen screen;
+FractalRenderer fractalRenderer;
+ModelRenderer modelRenderer;
 Shader shader("shader/shader.vs", "shader/shader.fs");
 Shader colorShader("shader/colorShader.vs", "shader/colorShader.fs");
 
 int main(int argc,char* argv[])
 {
 	string modelPath("objects/sphere-4k.obj");
-	int index = 1;
+	int* index = nullptr;
+	int length = 0;
 	if (argc > 2) {
 		modelPath = argv[1];
-		index = atoi(argv[2]);
+		length = argc - 2;
+		index = new int[length];
+		for (int i = 2; i < argc; ++i) {
+			index[i - 2] = atoi(argv[i]);
+		}
 	}
 	glfwInit();
 
@@ -71,24 +79,36 @@ int main(int argc,char* argv[])
 	glfwSetCursorPosCallback(window, cursorPos_callback);
 	glfwSetScrollCallback(window, scroll_callback);
 
-	shader.init();
-	colorShader.init();
-	Model model(modelPath,index);
-	renderer.init(&model);
-
+	shader.initialize();
+	colorShader.initialize();
+	Model model(modelPath,index,length);
+	modelRenderer.initialize(&model);
+	fractalRenderer.initialize(230, 230);
+	//fractalRenderer.renderFractal(0, 0, 0,0,0);
+	screen.initialize(window, false);
 
 
 	while (!glfwWindowShouldClose(window))
 	{
-
+		
 		float currentFrame = glfwGetTime();
 		deltaTime = currentFrame - lastFrame;
 		lastFrame = currentFrame;
 		processInput(window);
 		glfwPollEvents();
 		
-		renderer.render(shader);
+		//glViewport(0,0,Width, Height);
+		modelRenderer.render(shader);
+		screen.update();
+		screen.getScreen()->drawContents();
+		screen.getScreen()->drawWidgets();
+		
+		//int width, height, nrChannels;
+		//unsigned int tex = fractalRenderer.getTexture(&width, &height, &nrChannels);
+		////unsigned int tex = Texture::genTexture("texture/pic.png", &width, &height, &nrChannels);
+		//Texture::saveTexture(width, height, nrChannels, tex, "test");
 		glfwSwapBuffers(window);
+		//break;
 	}
 
 	glfwTerminate();
@@ -102,26 +122,27 @@ void processInput(GLFWwindow *window)
 		glfwSetWindowShouldClose(window, true);
 
 	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-		camera.ProcessKeyboard(UP, deltaTime);
+		camera.move(UP, deltaTime);
 	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-		camera.ProcessKeyboard(DOWN, deltaTime);
+		camera.move(DOWN, deltaTime);
 	if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
-		camera.ProcessKeyboard(FORWARD, deltaTime);
+		camera.move(FORWARD, deltaTime);
 	if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
-		camera.ProcessKeyboard(BACKWARD, deltaTime);
+		camera.move(BACKWARD, deltaTime);
 	if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-		camera.ProcessKeyboard(LEFT, deltaTime);
+		camera.move(LEFT, deltaTime);
 	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-		camera.ProcessKeyboard(RIGHT, deltaTime);
+		camera.move(RIGHT, deltaTime);
 
 }
 
 void mouseButton_callback(GLFWwindow *window, int button, int action, int modifiers) {
+	screen.getScreen()->mouseButtonCallbackEvent(button, action, modifiers);
 
 	double x, y;
 	glfwGetCursorPos(window, &x, &y);
 	if (action == GLFW_PRESS) {
-		renderer.renderOffScreen(colorShader, x, y);
+		modelRenderer.renderOffScreen(colorShader, x, y);
 	}
 	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE)
 		firstMouse_Left = true;
@@ -130,6 +151,8 @@ void mouseButton_callback(GLFWwindow *window, int button, int action, int modifi
 }
 
 void cursorPos_callback(GLFWwindow* window, double xpos, double ypos) {
+	screen.getScreen()->cursorPosCallbackEvent(xpos, ypos);
+
 	if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT)) {
 		if (firstMouse_Left) {
 			Left_lastX = xpos;
@@ -140,11 +163,11 @@ void cursorPos_callback(GLFWwindow* window, double xpos, double ypos) {
 		float yoffset = Left_lastY - ypos;
 		Left_lastX = xpos;
 		Left_lastY = ypos;
-		if (renderer.isSelect()) {
+		if (modelRenderer.isSelect()) {
 			xoffset *= 0.01;
 			yoffset *= 0.01;
-			Model* model = renderer.getModel();
-			model->setPosition(model->getPosition() + camera.Right*xoffset + camera.Up*yoffset);
+			Model* model = modelRenderer.getModel();
+			model->setPosition(model->getPosition() + camera._right*xoffset + camera._up*yoffset);
 		}
 	}
 	else if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT)) {
@@ -158,13 +181,13 @@ void cursorPos_callback(GLFWwindow* window, double xpos, double ypos) {
 		float yoffset = Right_lastY - ypos;
 		Right_lastX = xpos;
 		Right_lastY = ypos;
-		if (renderer.isSelect()) {
+		if (modelRenderer.isSelect()) {
 			xoffset *= 0.01;
 			yoffset *= 0.01;
-			Model* model = renderer.getModel();
+			Model* model = modelRenderer.getModel();
 
-			model->setRotate(xoffset, camera.Up);
-			model->setRotate(yoffset, -camera.Right);
+			model->setRotate(xoffset, camera._up);
+			model->setRotate(yoffset, -camera._right);
 		}
 	}
 
@@ -172,8 +195,8 @@ void cursorPos_callback(GLFWwindow* window, double xpos, double ypos) {
 
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 {
-	if (renderer.isSelect()) {
-		Model* model = renderer.getModel();
+	if (modelRenderer.isSelect()) {
+		Model* model = modelRenderer.getModel();
 		model->setScale(model->getScale() + glm::vec3(yoffset * 0.05));
 	}
 }

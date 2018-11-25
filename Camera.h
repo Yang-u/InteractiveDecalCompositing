@@ -6,7 +6,7 @@
 #include <vector>
 
 enum Camera_Movement {
-	FORWARD,
+	FORWARD=0,
 	BACKWARD,
 	UP,
 	DOWN,
@@ -16,26 +16,20 @@ enum Camera_Movement {
 class Camera
 {
 public:
-
 	Camera(glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f));
-	glm::mat4 GetViewMatrix()const;
-	void ProcessKeyboard(Camera_Movement direction, float deltaTime);
-
-private:
-	void updateCameraVectors();
+	glm::mat4 LookAt()const;
+	void move(Camera_Movement direction, float deltaTime);
 
 public:
+	glm::vec3 _position;
+	glm::vec3 _front;
+	glm::vec3 _up;
+	glm::vec3 _right;
+	glm::vec3 _world_up = glm::vec3(0.f, 1.f, 0.f);
 
-	glm::vec3 Position;
-	glm::vec3 Front;
-	glm::vec3 Up;
-	glm::vec3 Right;
-	glm::vec3 WorldUp = glm::vec3(0.f, 1.f, 0.f);
-
-	float Yaw = -90.f;
-	float Pitch = 0.f;
-	float Zoom = 45.f;
-	float MovementSpeed = 5.f;
-
+	float _yaw = -90.f;
+	float _pitch = 0.f;
+	float _zoom = 45.f;
+	float _movement_speed = 5.f;
 };
 

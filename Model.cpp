@@ -6,29 +6,36 @@
 #include <math.h>
 
 
-Model::Model(std::string path,int sec)
+Model::Model(std::string path,int* sec, int length)
 {
 	if (!mesh_io_helper::read_obj(path, V, F)) {
 		std::cerr << "read src or target obj failure!" << std::endl;
 	}
-	position = glm::vec3(0.0, 0.0, 0.0);
-	rotate = glm::mat4();
-	scale = glm::vec3(1.0, 1.0, 1.0);
+	_position = glm::vec3(0.0, 0.0, 0.0);
+	_rotate = glm::mat4();
+	_scale = glm::vec3(1.0, 1.0, 1.0);
 
 	//init
 	N.setZero(3, V.cols());
 	T.setZero(2, V.cols());
 	T_PolarCoord.setZero(2, V.cols());
-	graph.resize(V.cols());
-	for (auto& item : graph) {
+	_graph.resize(V.cols());
+	for (auto& item : _graph) {
 		item.resize(V.cols(), std::numeric_limits<double>::max());
 	}
 
 	calNormal();
 
-	if (sec != -1)
-		calTexCoord_DEM(sec);
-		//calTexCoord_SP(sec);
+	if (sec != nullptr&&length != 0) {
+		if (length == 1) calTexCoord_DEM(*sec);
+		else {
+			std::vector<int> secs;
+			for (int i = 0; i < length; ++i) {
+				secs.push_back(*(sec + i));
+			}
+			calTexCoord_SP(secs);
+		}
+	}
 
 	vector<Vertex> mesh;
 	for (int i = 0; i != F.cols(); ++i) {
@@ -47,7 +54,7 @@ Model::Model(std::string path,int sec)
 			mesh.push_back(vertex);
 		}
 	}
-	meshes.push_back(mesh);
+	_meshes.push_back(mesh);
 }
 void Model::calNormal()
 {
@@ -69,7 +76,18 @@ void Model::calTexCoord_DEM(int sec)
 
 	dijkstra_DEM(sec);
 	
-	calTexCoord(sec);
+	for (int i = 0; i < V.cols(); ++i) {
+		if (i == sec) {
+			T.col(i) = Eigen::Vector2d(0.5, 0.5);
+			continue;
+		}
+		Eigen::Vector2d uv = T_PolarCoord.col(i);
+		double x = uv.x()*0.5;
+		double y = uv.y()*0.5;
+
+		T.col(i) = Eigen::Vector2d((0.5 + x), (0.5 + y));
+		//std::cout << "(" << 0.5 + x << "," << 0.5 + y << ")" << std::endl;
+	}
 }
 
 
@@ -91,7 +109,7 @@ void Model::dijkstra_DEM(int sec)
 
 	for (int i = 0; i<V.cols(); i++)
 	{
-		d[i] = graph[sec][i];
+		d[i] = _graph[sec][i];
 	}
 	vis[sec] = 1; 
 	d[sec] = 0;
@@ -174,10 +192,10 @@ void Model::dijkstra_DEM(int sec)
 		}
 		for (int j = 0; j<V.cols(); j++)
 		{
-			if (!vis[j]&&d[j]>min + graph[min_num][j])
+			if (!vis[j]&&d[j]>min + _graph[min_num][j])
 			{
 				p[j] = min_num;
-				d[j] = min + graph[min_num][j];
+				d[j] = min + _graph[min_num][j];
 			}
 		}
 	}
@@ -186,16 +204,16 @@ void Model::dijkstra_DEM(int sec)
 
 
 
-void Model::calTexCoord_SP(int sec) 
+void Model::calTexCoord_SP(std::vector<int> sec)
 {
 	buildGraph();
 
 	dijkstra_SP(sec);
 
-	calTexCoord(sec);
+	//T赋值
 }
 
-void Model::dijkstra_SP(int sec)
+void Model::dijkstra_SP(std::vector<int> sec)
 {
 
 }
@@ -206,27 +224,12 @@ void Model::buildGraph()
 		int index_0 = F(0, i);
 		int index_1 = F(1, i);
 		int index_2 = F(2, i);
-		graph[index_0][index_1] = graph[index_1][index_0] = (V.col(index_0) - V.col(index_1)).norm();
-		graph[index_1][index_2] = graph[index_2][index_1] = (V.col(index_1) - V.col(index_2)).norm();
-		graph[index_2][index_0] = graph[index_0][index_2] = (V.col(index_2) - V.col(index_0)).norm();
+		_graph[index_0][index_1] = _graph[index_1][index_0] = (V.col(index_0) - V.col(index_1)).norm();
+		_graph[index_1][index_2] = _graph[index_2][index_1] = (V.col(index_1) - V.col(index_2)).norm();
+		_graph[index_2][index_0] = _graph[index_0][index_2] = (V.col(index_2) - V.col(index_0)).norm();
 	}
 }
 
-void Model::calTexCoord(int sec)
-{
-	for (int i = 0; i < V.cols(); ++i) {
-		if (i == sec) {
-			T.col(i) = Eigen::Vector2d(0.5, 0.5);
-			continue;
-		}
-		Eigen::Vector2d uv = T_PolarCoord.col(i);
-		double x = uv.x()*0.5;
-		double y = uv.y()*0.5;
-
-		T.col(i) = Eigen::Vector2d((0.5 + x), (0.5 + y));
-		//std::cout << "(" << 0.5 + x << "," << 0.5 + y << ")" << std::endl;
-	}
-}
 
 Eigen::Vector3d Model::ProjectOnPlane(Eigen::Vector3d p, Eigen::Vector3d n, Eigen::Vector3d q) {
 	if (((q - p).norm()) == 0)return q;
@@ -236,31 +239,31 @@ Eigen::Vector3d Model::ProjectOnPlane(Eigen::Vector3d p, Eigen::Vector3d n, Eige
 void Model::setRotate(const float angle, const glm::vec3& axis) {
 	glm::mat4 temp;
 	temp = glm::rotate(temp, angle, axis);
-	rotate = temp * rotate;
+	_rotate = temp * _rotate;
 }
 
 void Model::render(const Shader& shader)
 {
 	glm::mat4 model;
-	model = glm::translate(model, position);
-	model *= rotate;
-	model = glm::scale(model, scale);
+	model = glm::translate(model, _position);
+	model *= _rotate;
+	model = glm::scale(model, _scale);
 
 	shader.use();
 	shader.setMat4("model", model);
-	for (auto mesh : meshes)
+	for (auto mesh : _meshes)
 		mesh.render(shader);
 }
 
 void Model::renderOffScreen(const Shader& colorShader) {
 	glm::mat4 model;
-	model = glm::translate(model, position);
-	model *= rotate;
-	model = glm::scale(model, scale);
+	model = glm::translate(model, _position);
+	model *= _rotate;
+	model = glm::scale(model, _scale);
 
 	colorShader.use();
 	colorShader.setMat4("model", model);
 
-	for (auto mesh : meshes)
+	for (auto mesh : _meshes)
 		mesh.renderOffScreen(colorShader);
 }

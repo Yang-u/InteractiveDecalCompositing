@@ -3,55 +3,50 @@
 
 Camera::Camera(glm::vec3 position) 
 {
-	Position = position;
-	updateCameraVectors();
+	_position = position;
+	glm::vec3 front;
+	front.x = cos(glm::radians(_yaw)) * cos(glm::radians(_pitch));
+	front.y = sin(glm::radians(_pitch));
+	front.z = sin(glm::radians(_yaw)) * cos(glm::radians(_pitch));
+	_front = glm::normalize(front);
+
+	_right = glm::normalize(glm::cross(_front, _world_up));
+	_up = glm::normalize(glm::cross(_right, _front));
 }
 
 
-glm::mat4 Camera::GetViewMatrix()const
+glm::mat4 Camera::LookAt()const
 {
 	glm::mat4 rotation;
-	rotation = glm::mat4(Right.x, Up.x, -Front.x, 0.0f, Right.y, Up.y, -Front.y, 0.0f, Right.z, Up.z, -Front.z, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f);
+	rotation = glm::mat4(_right.x, _up.x, -_front.x, 0.0f,
+						 _right.y, _up.y, -_front.y, 0.0f, 
+						 _right.z, _up.z, -_front.z, 0.0f,
+						 0.0f,     0.0f,  0.0f,      1.0f);
 
 	glm::mat4 translation;
-	translation[3][0] = -Position.x;
-	translation[3][1] = -Position.y;
-	translation[3][2] = -Position.z;
+	translation[3][0] = -_position.x;
+	translation[3][1] = -_position.y;
+	translation[3][2] = -_position.z;
 	return rotation * translation;
 
 }
 
 
-void Camera::ProcessKeyboard(Camera_Movement direction, float deltaTime)
+void Camera::move(Camera_Movement direction, float deltaTime)
 {
-	float velocity = MovementSpeed * deltaTime;
+	float velocity = _movement_speed * deltaTime;
 	if (direction == FORWARD)
-		Position += Front * velocity;
+		_position += _front * velocity;
 	if (direction == BACKWARD)
-		Position -= Front * velocity;
+		_position -= _front * velocity;
 	if (direction == UP)
-		Position += WorldUp * velocity;
+		_position += _world_up * velocity;
 	if (direction == DOWN)
-		Position -= WorldUp * velocity;
+		_position -= _world_up * velocity;
 	if (direction == LEFT)
-		Position -= Right * velocity;
+		_position -= _right * velocity;
 	if (direction == RIGHT)
-		Position += Right * velocity;
-}
-
-
-
-void Camera::updateCameraVectors()
-{
-
-	glm::vec3 front;
-	front.x = cos(glm::radians(Yaw)) * cos(glm::radians(Pitch));
-	front.y = sin(glm::radians(Pitch));
-	front.z = sin(glm::radians(Yaw)) * cos(glm::radians(Pitch));
-	Front = glm::normalize(front);
-
-	Right = glm::normalize(glm::cross(Front, WorldUp));
-	Up = glm::normalize(glm::cross(Right, Front));
+		_position += _right * velocity;
 }
 
 
